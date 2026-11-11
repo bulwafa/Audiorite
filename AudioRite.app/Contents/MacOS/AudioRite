@@ -1,0 +1,21 @@
+#!/bin/bash
+# Starts the AudioRite server if it isn't running, then opens the page in its own window.
+# The AudioRite folder is the one this app sits in; a copy in /Applications has it written in Resources/root (setup.sh app).
+APP="$(cd "$(dirname "$0")/../.." && pwd)"
+if [ -f "$APP/Contents/Resources/root" ]; then ROOT="$(cat "$APP/Contents/Resources/root")"; else ROOT="$(dirname "$APP")"; fi
+URL=http://localhost:8765
+if [ ! -x "$ROOT/envs/tools/bin/python" ] || [ ! -f "$ROOT/tool/server.py" ]; then
+  osascript -e 'display alert "AudioRite is not set up yet" message "Run setup.sh in the AudioRite folder first."'
+  exit 1
+fi
+if ! curl -s -o /dev/null "$URL/api/setup"; then
+  mkdir -p "$ROOT/work"
+  nohup "$ROOT/envs/tools/bin/python" "$ROOT/tool/server.py" >> "$ROOT/work/server.log" 2>&1 &
+  disown
+  for i in $(seq 1 50); do curl -s -o /dev/null "$URL/api/setup" && break; sleep 0.2; done
+fi
+if [ -d "/Applications/Google Chrome.app" ]; then
+  open -na "Google Chrome" --args --app="$URL"
+else
+  open "$URL"
+fi

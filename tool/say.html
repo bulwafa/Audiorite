@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AudioRite</title>
+<style>
+  :root { --bg:#f6f6f4; --card:#fff; --ink:#1d1d1b; --mute:#77756f; --line:#e4e2dc; --accent:#2f6f4f; --warn:#b4432f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px; }
+  h1 { font-size:18px; margin:0 0 14px; }
+  textarea { width:100%; min-height:220px; font:16px/1.5 -apple-system, sans-serif; padding:12px; border:1px solid var(--line); border-radius:9px; background:var(--card); color:var(--ink); }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0; }
+  select, button, a.btn { font:inherit; padding:8px 14px; border-radius:7px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; text-decoration:none; }
+  button.main { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.6; cursor:default; }
+  audio { width:100%; margin-top:6px; }
+  #msg { color:var(--mute); font-size:14px; }
+  #msg.err { color:var(--warn); }
+</style>
+</head>
+<body>
+<main>
+  <h1>AudioRite</h1>
+  <textarea id="text" placeholder="Type or paste what you want read"></textarea>
+  <div class="bar">
+    <select id="voice"></select>
+    <button class="main" id="go">Convert</button>
+    <span id="msg"></span>
+  </div>
+  <div id="out" hidden>
+    <audio id="player" controls></audio>
+    <div class="bar"><a class="btn" id="save" download>Save clip</a></div>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch {} };
+
+fetch("/api/setup").then(r => r.json()).then(d => {
+  $("voice").innerHTML = Object.entries(d.models).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  if (store("voice")) $("voice").value = store("voice");
+});
+$("text").value = store("text") || "";
+$("text").oninput = () => store("text", $("text").value);
+$("voice").onchange = () => store("voice", $("voice").value);
+
+$("go").onclick = async () => {
+  const text = $("text").value.trim(), model = $("voice").value;
+  if (!text) return;
+  $("go").disabled = true; $("msg").className = ""; $("msg").textContent = "Converting…";
+  const r = await fetch("/api/say", {method:"POST", headers:{"Content-Type":"application/json"},
+                                     body:JSON.stringify({text, model})}).then(r => r.json());
+  $("go").disabled = false;
+  if (r.error) { $("msg").className = "err"; $("msg").textContent = r.error; return; }
+  $("msg").textContent = "";
+  const url = `/clip/${model}/${r.id}`;
+  $("player").src = url; $("out").hidden = false; $("player").play();
+  $("save").href = url;
+  $("save").download = text.replace(/[^\w' ,.-]/g, "").split(/\s+/).slice(0, 8).join(" ").replace(/[,.]$/, "") + ".wav";
+};
+</script>
+</body>
+</html>

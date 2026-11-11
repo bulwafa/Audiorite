@@ -1,0 +1,11 @@
+Temp/
+envs/
+models/
+*.m4v
+*.wav
+.DS_Store
+__pycache__/
+work/
+projects/
+CLAUDE.md
+.claude/

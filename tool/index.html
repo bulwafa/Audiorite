@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AudioRite</title>
+<style>
+  :root { --bg:#f6f6f4; --card:#fff; --ink:#1d1d1b; --mute:#77756f; --line:#e4e2dc; --accent:#2f6f4f; --warn:#b4432f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  header { position:sticky; top:0; z-index:2; background:var(--card); border-bottom:1px solid var(--line); padding:12px 20px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  header h1 { font-size:17px; margin:0 12px 0 0; }
+  select, button { font:inherit; padding:6px 10px; border-radius:7px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; }
+  button.main { background:var(--accent); color:#fff; border-color:var(--accent); }
+  #state { color:var(--mute); margin-left:auto; font-size:14px; }
+  main { max-width:980px; margin:0 auto; padding:16px 20px 80px; }
+  h2 { font-size:15px; margin:26px 0 8px; color:var(--mute); font-weight:600; }
+  .row { display:grid; grid-template-columns: 1fr 300px 64px; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:9px 12px; margin:6px 0; }
+  .row .t { min-width:0; }
+  .row .s { font-size:12.5px; color:var(--mute); }
+  .row .s.err { color:var(--warn); }
+  .row audio { width:100%; height:34px; }
+  .row.working { border-color:var(--accent); }
+  textarea { width:100%; min-height:60vh; font:14px/1.5 ui-monospace, Menlo, monospace; padding:12px; border:1px solid var(--line); border-radius:9px; }
+  .panel { display:none; } .panel.on { display:block; }
+  .hint { color:var(--mute); font-size:13.5px; margin:6px 0 10px; }
+  @media (max-width:760px) { .row { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>AudioRite</h1>
+  <label>Script <select id="script"></select></label>
+  <label>Voice <select id="model"></select></label>
+  <button class="main" id="all">Make all</button>
+  <button id="stop">Stop</button>
+  <button class="main" id="fcp">Send to Final Cut</button>
+  <button id="newBtn">New script</button>
+  <button id="editBtn">Edit script</button>
+  <button id="wordsBtn">Word list</button>
+  <span id="state"></span>
+</header>
+<main>
+  <div id="lines" class="panel on"></div>
+  <div id="edit" class="panel">
+    <p class="hint">Paste or write your script here. One sentence per line. Lines starting with # are headings and are not spoken. Only changed lines are made again.</p>
+    <textarea id="editText"></textarea>
+    <p><button class="main" id="saveText">Save</button> <button class="back">Back</button></p>
+  </div>
+  <div id="words" class="panel">
+    <p class="hint">One word per line, how it should be said: <code>Vivosun = Vee-vo-sun</code>. Lines with that word are made again.</p>
+    <textarea id="wordsText"></textarea>
+    <p><button class="main" id="saveWords">Save</button> <button class="back">Back</button></p>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const api = (p, body) => fetch(p, body ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)} : {})
+  .then(r => (r.headers.get("Content-Type")||"").includes("json") ? r.json() : r.text());
+let lines = [], shown = "";
+
+function show(id) { for (const p of ["lines","edit","words"]) $(p).classList.toggle("on", p === id); }
+
+function status(l) {
+  if (l.error) return `<span class="s err">Failed: ${l.error}</span>`;
+  if (l.working) return `<span class="s">Making…</span>`;
+  if (l.queued) return `<span class="s">Waiting</span>`;
+  if (l.done) return "";
+  return `<span class="s">Not made yet</span>`;
+}
+
+function render(data) {
+  lines = data.lines;
+  $("state").textContent = data.left ? `${data.state} · ${data.left} left` : data.state;
+  const model = $("model").value;
+  const html = lines.map((l, i) => l.heading
+    ? `<h2>${esc(l.text.replace(/^#+\s*/, ""))}</h2>`
+    : `<div class="row${l.working ? " working" : ""}">
+         <div class="t">${esc(l.text)}<br>${status(l)}${l.secs ? `<span class="s">made in ${l.secs}s</span>` : ""}</div>
+         <div>${l.done ? `<audio controls preload="none" src="/clip/${model}/${l.id}?v=${l.secs||0}"></audio>` : ""}</div>
+         <div>${l.done ? `<button data-redo="${i}">Redo</button>` : (l.queued || l.working ? "" : `<button data-make="${i}">Make</button>`)}</div>
+       </div>`);
+  // Replace only rows that changed, so a clip that is playing is not cut off.
+  const box = $("lines");
+  if (shown !== `${$("script").value}|${model}|${html.length}`) {
+    shown = `${$("script").value}|${model}|${html.length}`;
+    box.innerHTML = html.map(h => `<div class="slot">${h}</div>`).join("");
+    html.forEach((h, i) => box.children[i].dataset.h = h);
+    return;
+  }
+  html.forEach((h, i) => { const s = box.children[i]; if (s.dataset.h !== h) { s.innerHTML = h; s.dataset.h = h; } });
+}
+const esc = s => s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function refresh() {
+  if (!$("script").value) return;
+  return api(`/api/lines?script=${encodeURIComponent($("script").value)}&model=${$("model").value}`).then(render);
+}
+
+$("lines").addEventListener("click", e => {
+  const m = e.target.dataset.make, r = e.target.dataset.redo, model = $("model").value;
+  if (m !== undefined) api("/api/make", {model, lines:[lines[m].text]}).then(refresh);
+  if (r !== undefined) api("/api/redo", {model, text:lines[r].text}).then(refresh);
+});
+$("all").onclick = () => api("/api/make", {model:$("model").value, lines:lines.filter(l => !l.heading && !l.done).map(l => l.text)}).then(refresh);
+$("fcp").onclick = () => api("/api/finalcut", {script:$("script").value, model:$("model").value})
+  .then(r => alert(r.missing ? `${r.clips} clips in the folder. ${r.missing} lines aren't made yet: press Make all, then send again.`
+                             : `All ${r.clips} clips are in the folder that just opened. Drag it into Final Cut.`));
+$("newBtn").onclick = () => { const name = prompt("Name of the new script:"); if (!name) return;
+  api("/api/new", {name}).then(r => api("/api/setup").then(d => {
+    $("script").innerHTML = d.scripts.map(s => `<option>${s}</option>`).join("");
+    $("script").value = r.script; shown = ""; $("editText").value = ""; show("edit"); })); };
+$("stop").onclick = () => api("/api/stop", {}).then(refresh);
+$("editBtn").onclick = () => api(`/api/text?script=${encodeURIComponent($("script").value)}`).then(t => { $("editText").value = t; show("edit"); });
+$("wordsBtn").onclick = () => api("/api/words").then(t => { $("wordsText").value = t; show("words"); });
+$("saveText").onclick = () => api("/api/text", {script:$("script").value, text:$("editText").value}).then(() => { shown = ""; show("lines"); refresh(); });
+$("saveWords").onclick = () => api("/api/words", {text:$("wordsText").value}).then(() => { shown = ""; show("lines"); refresh(); });
+document.querySelectorAll(".back").forEach(b => b.onclick = () => show("lines"));
+for (const s of ["script", "model"]) $(s).onchange = () => { shown = ""; try { localStorage.setItem(s, $(s).value); } catch {} refresh(); };
+
+api("/api/setup").then(d => {
+  $("script").innerHTML = d.scripts.map(s => `<option>${s}</option>`).join("");
+  $("model").innerHTML = Object.entries(d.models).map(([k, v]) => `<option value="${k}">${v}</option>`).join("");
+  try { for (const s of ["script", "model"]) { const v = localStorage.getItem(s); if (v) $(s).value = v; } } catch {}
+  refresh();
+  setInterval(refresh, 2000);
+});
+</script>
+</body>
+</html>

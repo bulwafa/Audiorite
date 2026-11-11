@@ -1,0 +1,5 @@
+# Installed into envs/piper by setup.sh. These are the versions AudioRite was made and tested with.
+kokoro-onnx==0.6.1
+piper-tts==1.8.0
+soundfile==0.14.0
+onnxruntime==1.23.2

@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AudioRite</title>
+<style>
+  :root { --bg:#151614; --card:#1e201d; --field:#262925; --ink:#e6e4de; --mute:#8f8c84; --line:#33362f; --accent:#3f8a63; --soft:#243328; --warn:#e07a62; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; display:flex; min-height:100vh; }
+  select, button, a.btn { font:inherit; font-size:14px; padding:6px 12px; border-radius:7px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; text-decoration:none; }
+  button.main { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.55; cursor:default; }
+  button.link { border:0; background:none; color:var(--mute); padding:4px 6px; }
+  button.link:hover { color:var(--ink); }
+
+  nav { width:220px; flex:none; background:var(--card); border-right:1px solid var(--line); padding:16px 12px; }
+  nav h1 { font-size:17px; margin:0 6px 14px; display:flex; align-items:center; gap:8px; }
+  nav h1 svg { width:24px; height:24px; flex:none; }
+  nav .p { display:block; width:100%; text-align:left; border:0; background:none; padding:7px 8px; border-radius:7px; margin:1px 0; }
+  nav .p.on { background:var(--soft); color:var(--accent); font-weight:600; }
+  nav .pname { display:block; width:100%; font:inherit; font-size:14px; padding:6px 7px; margin:1px 0; border:1px solid var(--accent); border-radius:7px; background:var(--field); color:var(--ink); outline:none; }
+  nav .p.drop { box-shadow:inset 0 2px 0 var(--accent); }
+  #pmenu { position:fixed; z-index:10; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:4px; box-shadow:0 6px 20px rgba(0,0,0,.5); min-width:150px; }
+  #pmenu[hidden] { display:none; }
+  #pmenu button { display:block; width:100%; text-align:left; border:0; background:none; padding:6px 10px; border-radius:5px; }
+  #pmenu button:hover { background:var(--soft); }
+  #pmenu i { display:inline-block; width:22px; font-style:normal; color:var(--mute); }
+  #pmenu .danger { color:#e07a7a; border-top:1px solid var(--line); border-radius:0 0 5px 5px; margin-top:3px; }
+  nav .new { margin-top:10px; width:100%; }
+  body.navhide nav { display:none; }
+  body.navhide:has(#head[hidden]) nav { display:block; }  /* no project open: keep the list */
+  #navBtn { padding:4px 9px; font-size:16px; line-height:1; }
+
+  main { flex:1; min-width:0; }
+  header { position:sticky; top:0; z-index:2; background:var(--card); border-bottom:1px solid var(--line); padding:10px 20px; display:flex; flex-direction:column; gap:10px; }
+  /* three rows: voice | mix, count, paste, convert | ticks on the left, saving on the right; right edges line up */
+  .hrow { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+  .hrow select, .hrow button:not(.link) { height:34px; }
+  .grp { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .push { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .push #state { margin-right:6px; }
+  header h2 { font-size:17px; margin:0 8px 0 0; }
+  header label { display:flex; align-items:center; gap:6px; color:var(--mute); font-size:14px; }
+  #speedVal, #rhythmVal, #toneVal, #pauseVal, #commaVal, #mixamtVal { width:44px; color:var(--ink); font-variant-numeric:tabular-nums; }
+  #piperSet[hidden], #kokoroSet[hidden], #mixSet[hidden], label[hidden] { display:none; }
+  #mixSet { display:flex; align-items:center; gap:10px 14px; }
+  /* Speed and the engine's sliders: a button that reads the values, and a panel under it with the sliders */
+  #tuneWrap { position:relative; }
+  #tuneBtn { min-width:230px; display:flex; gap:12px; justify-content:space-between; font-variant-numeric:tabular-nums; }
+  #tuneBtn span { color:var(--ink); white-space:nowrap; }
+  #tuneBtn b { font-weight:400; color:var(--mute); margin-right:3px; }
+  #tune { position:absolute; top:calc(100% + 6px); right:0; z-index:5; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.5); display:grid; gap:8px; }
+  #tune[hidden] { display:none; }
+  #tune label { display:grid; grid-template-columns:62px 200px 52px; align-items:center; gap:8px; }
+  #tune select { width:200px; }
+  #tune > div { display:grid; gap:8px; }
+  #tune .link { justify-self:start; padding-left:0; }
+  #state { color:var(--mute); font-size:14px; }
+
+  #boxes { max-width:1200px; margin:0 auto; padding:18px 20px 120px; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:10px 0; }
+  .box.busy { border-color:var(--accent); }
+  .top { display:flex; gap:10px; }
+  .txt { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .txt textarea { flex:none; width:100%; }
+  input.label { font:13px/1.3 -apple-system, sans-serif; color:var(--mute); background:transparent; border:1px solid transparent; border-radius:6px; padding:3px 9px; }
+  input.label:hover { border-color:var(--line); }
+  input.label:focus { outline:none; border-color:var(--accent); background:var(--field); color:var(--ink); }
+  input.label:not(:placeholder-shown) { color:var(--accent); font-weight:600; }
+  .pick { margin:11px 0 0; accent-color:var(--accent); width:16px; height:16px; flex:none; cursor:pointer; }
+  .scene .pick { margin:0; }
+  .box.sel { background:#1f2a22; }
+  .st.ok { color:var(--accent); }
+  .num { color:var(--mute); font-size:13px; padding-top:9px; width:22px; flex:none; text-align:right; font-variant-numeric:tabular-nums; }
+  textarea { flex:1; min-width:0; resize:none; overflow:hidden; font:16px/1.5 -apple-system, sans-serif; padding:7px 9px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--ink); }
+  textarea:hover { border-color:var(--line); }
+  textarea:focus { outline:none; border-color:var(--accent); background:var(--field); }
+  .row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 0 0 32px; }
+  .row audio { height:32px; flex:1; min-width:200px; max-width:420px; }
+  .row select { padding:5px 6px; }
+  .st { color:var(--mute); font-size:13px; }
+  .st.err { color:var(--warn); }
+  .row .end { margin-left:auto; display:flex; gap:2px; }
+  .empty { color:var(--mute); text-align:center; margin-top:80px; }
+  .box { border-left:3px solid var(--c, var(--line)); }
+  .spk { display:flex; align-items:center; gap:8px; margin:20px 0 4px; padding:2px 8px; border-left:4px solid var(--c, var(--line)); }
+  .spk select { font-weight:600; color:var(--c, var(--ink)); }
+  .scene { display:flex; align-items:center; gap:8px; margin:30px 0 8px; padding:8px 10px; background:var(--soft); border:1px solid var(--line); border-radius:9px; }
+  .scene input.title { flex:1; min-width:0; font:600 17px/1.3 -apple-system, sans-serif; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:6px; padding:4px 6px; }
+  .scene input.title:focus { outline:none; border-color:var(--accent); background:var(--field); }
+  .scene .fold { font-size:15px; width:28px; }
+  .box.in, .spk.in { margin-left:28px; }  /* inside a scene; boxes outside any scene stay full width */
+  .spk .end, .scene .end { margin-left:auto; display:flex; gap:2px; }
+
+  dialog { background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:18px; width:min(700px, 92vw); }
+  dialog::backdrop { background:rgba(0,0,0,.6); }
+  dialog textarea { background:var(--field); width:100%; min-height:300px; border:1px solid var(--line); resize:vertical; overflow:auto; }
+  dialog p { margin:0 0 10px; color:var(--mute); font-size:14px; }
+</style>
+</head>
+<body>
+<nav>
+  <h1><svg viewBox="100 100 824 824" aria-hidden="true"><rect x="100" y="100" width="824" height="824" rx="185" fill="#2f6f4f"/><g transform="translate(232 232) scale(23.33)" fill="#fff"><path d="M23,11a1,1,0,0,1-1,1H19.659l-2.74,6.394a1.015,1.015,0,0,1-.982.6,1,1,0,0,1-.9-.724L12.064,7.865,8.97,20.242A1,1,0,0,1,8.057,21L8,21a1,1,0,0,1-.937-.648L4.307,13H2a1,1,0,0,1,0-2H5a1,1,0,0,1,.937.648l1.872,4.994L11.03,3.758a1,1,0,0,1,1.931-.032l3.228,11.3,1.892-4.415A1,1,0,0,1,19,10h3A1,1,0,0,1,23,11Z"/></g></svg>AudioRite</h1>
+  <div id="list" title="Right-click a project to rename, move or delete it; drag to reorder"></div>
+  <button class="new" id="newBtn">+ New project</button>
+</nav>
+<main>
+  <header id="head" hidden>
+   <div class="hrow">
+    <button class="link" id="navBtn" title="Hide or show the project list">☰</button>
+    <h2 id="title"></h2>
+    <label title="Which voice the settings in this bar change: the default one, or a speaker's">Speaker <select id="who"></select></label>
+    <button class="link" id="whoRename" title="Rename this speaker">Rename</button>
+    <button class="link" id="whoDel" title="Delete this speaker; their rows go back to the default voice">Delete</button>
+    <label>Voice <select id="voice"></select></label>
+    <div id="tuneWrap" class="push">
+      <button id="tuneBtn" title="Speed and the voice's settings. Click to change them"></button>
+      <div id="tune" hidden>
+        <label title="How fast it speaks">Speed <input type="range" id="speed" min="0.7" max="1.3" step="0.05"><span id="speedVal"></span></label>
+        <div id="piperSet">
+          <label title="How much the timing varies. Higher = less even, less robotic rhythm">Rhythm <input type="range" id="rhythm" min="0.2" max="1.6" step="0.01"><span id="rhythmVal"></span></label>
+          <label title="How much the voice varies in tone. Higher = livelier, but more bad takes">Tone <input type="range" id="tone" min="0.2" max="1.2" step="0.01"><span id="toneVal"></span></label>
+          <button class="link" id="resetSet" title="Back to the voice's own rhythm and tone">Reset</button>
+        </div>
+        <div id="kokoroSet">
+          <label title="Silence after . ! ? …">Pause <input type="range" id="pause" min="0" max="1.5" step="0.05"><span id="pauseVal"></span></label>
+          <label title="Silence after , ; :">Comma <input type="range" id="comma" min="0" max="0.8" step="0.05"><span id="commaVal"></span></label>
+          <button class="link" id="resetKokoro" title="Back to Kokoro's own pauses">Reset</button>
+        </div>
+      </div>
+    </div>
+   </div>
+   <div class="hrow">
+    <span id="mixSet">
+      <label title="Blend a second voice into this one">Mix <select id="mix"></select></label>
+      <label id="mixamtLabel" title="How much of the second voice">Amount <input type="range" id="mixamt" min="0.05" max="0.95" step="0.05"><span id="mixamtVal"></span></label>
+    </span>
+    <div class="push">
+      <span id="state"></span>
+      <button id="pasteBtn">Paste script</button>
+      <button class="main" id="allBtn">Convert changed</button>
+    </div>
+   </div>
+   <div class="hrow">
+    <div class="grp">
+      <button id="selNew" title="Tick the boxes never saved, or changed since they were saved">Select new</button>
+      <button id="selNone" title="Untick all boxes">Select none</button>
+      <select id="toScene" title="Move the ticked boxes into a new scene, or to the end of a scene"></select>
+    </div>
+    <div class="grp push">
+      <button id="saveSel" title="Save the ticked boxes to a folder you choose, named by their box names">Save selected</button>
+      <button id="textSel" title="Save the ticked boxes' text in one file, each under its box name (else its number)">Export text</button>
+      <button id="exportBtn">Save all for Final Cut</button>
+    </div>
+   </div>
+  </header>
+  <div id="boxes"><p class="empty">Make a project on the left to start.</p></div>
+</main>
+
+<div id="pmenu" hidden>
+  <button data-m="rename"><i>✎</i>Rename…</button>
+  <button data-m="up"><i>↑</i>Move up</button>
+  <button data-m="down"><i>↓</i>Move down</button>
+  <button data-m="delete" class="danger"><i>🗑</i>Delete…</button>
+</div>
+
+<dialog id="paste">
+  <p>Paste your script. Each paragraph (separated by an empty line) becomes one box. A paragraph starting with a name and a colon, like "Sam: Hello", starts a speaker row for Sam. A line starting with ## starts a scene, e.g. "## Scene 1 – Kitchen". Other lines starting with # are left out.</p>
+  <textarea id="pasteText"></textarea>
+  <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end">
+    <button id="pasteCancel">Cancel</button><button class="main" id="pasteOk">Add boxes</button>
+  </div>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const post = (p, body) => fetch(p, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}).then(r => r.json());
+const get = p => fetch(p).then(r => r.json());
+const store = (k, v) => { try { return v === undefined ? localStorage.getItem(k) : localStorage.setItem(k, v); } catch {} };
+const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const SPEEDS = ["0.7","0.75","0.8","0.85","0.9","0.95","1","1.05","1.1","1.15","1.2","1.25","1.3"];
+const RHYTHMS = ["0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1","1.1","1.2","1.3","1.4","1.5","1.6"];
+const TONES = ["0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1","1.1","1.2"];
+const COLORS = ["#5fa8d3", "#e0a458", "#b98ad8", "#6cc28a", "#e07a9b", "#c9c26a"];  // one per speaker, in order
+let DEF = {};  // per voice, the values its sliders start from: Piper rhythm and tone, Kokoro pause and comma
+const KEYS = ["rhythm", "tone", "pause", "comma", "mix", "mixamt"];  // engine settings a project or speaker can set
+const settings = (o = P) => Object.fromEntries(KEYS.map(k => [k, o[k]]));
+const shown = (k, v) => k === "mixamt" ? Math.round(v * 100) + "%" : ["pause", "comma"].includes(k) ? (+v).toFixed(2) + " s" : (+v).toFixed(2);
+
+// P.boxes holds the boxes and the divider rows between them: {kind:"speaker", speaker}, {kind:"scene", title, folded}
+// and {kind:"end"}, where that scene stops. Boxes after an end and before the next scene are in no scene.
+// A box speaks with the speaker of the last speaker row above it; with none (or "Default voice"), the project's own voice.
+let P = null, name = null, saveTimer = null;
+let queue = [], pumping = false;  // boxes to convert, in click order; the first one is being made
+let ed = "";  // the speaker the top bar is changing; "" = the default voice
+const V = () => ed && P.speakers.find(s => s.name === ed) || P;
+const isBox = b => !b.kind;
+const todo = list => list.filter(b => isBox(b) && b.text.trim() && !b.done).length;
+const waiting = list => list.filter(b => isBox(b) && b.text.trim() && !b.done && !b.working);
+const color = n => { const i = P.speakers.findIndex(s => s.name === n); return i < 0 ? "" : COLORS[i % COLORS.length]; };
+const payload = () => ({name, voice:P.voice, speed:P.speed, ...settings(), speakers:P.speakers, boxes:P.boxes});
+
+document.body.classList.toggle("navhide", store("navhide") === "1");
+$("navBtn").onclick = () => store("navhide", document.body.classList.toggle("navhide") ? "1" : "0");
+
+function tidy() {  // every scene gets its end row; projects from before ends existed end each scene where the next starts
+  const out = []; let open = false;
+  for (const b of P.boxes) {
+    if (b.kind === "scene") { if (open) out.push({kind:"end"}); open = true; }
+    if (b.kind === "end") { if (!open) continue; open = false; }
+    out.push(b);
+  }
+  if (open) out.push({kind:"end"});
+  if (out.length !== P.boxes.length) P.boxes.splice(0, P.boxes.length, ...out);
+}
+const inScene = i => { for (let j = i - 1; j >= 0; j--) { if (P.boxes[j].kind === "end") return false; if (P.boxes[j].kind === "scene") return true; } return false; };
+const sceneEnd = i => { let j = i + 1; while (j < P.boxes.length && P.boxes[j].kind !== "end") j++; return j; };  // i: a scene row
+
+function save() {
+  clearTimeout(saveTimer);
+  tidy();
+  return post("/api/project/save", payload());
+}
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 600); }
+
+async function loadList() {
+  const d = await get("/api/projects");
+  $("list").innerHTML = d.projects.map(p => `<button class="p${p === name ? " on" : ""}" data-p="${esc(p)}" draggable="true">${esc(p)}</button>`).join("");
+  return d.projects;
+}
+
+async function open(n) {
+  if (P) await save();
+  name = n; store("project", n);
+  P = await get(`/api/project?name=${encodeURIComponent(n)}`);
+  P.speakers ||= [];
+  const rows = P.boxes.length; tidy();
+  if (P.boxes.length !== rows) await save();  // the server counts boxes by position, so it must have the end rows too
+  ed = "";
+  $("head").hidden = false;
+  $("title").textContent = n;
+  showWho(); render(); loadList();
+}
+
+const isPiper = (v = V().voice) => "rhythm" in (DEF[v] || {});
+const isKokoro = (v = V().voice) => "pause" in (DEF[v] || {});
+
+function showWho() {  // the Speaker menu in the top bar, then that speaker's voice and settings
+  $("who").innerHTML = `<option value="">Default voice</option>` +
+    P.speakers.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join("") + `<option value="__new">+ New speaker…</option>`;
+  $("who").value = ed;
+  $("whoRename").hidden = $("whoDel").hidden = !ed;
+  const v = V();
+  $("voice").value = v.voice;
+  $("speed").value = v.speed; $("speedVal").textContent = (+v.speed).toFixed(2) + "×";
+  showSettings();
+}
+
+function showSettings() {  // Piper: rhythm and tone. Kokoro: pauses and mix. Unset = the voice's own value
+  const v = V(), d = DEF[v.voice] || {};
+  $("piperSet").hidden = !isPiper(); $("kokoroSet").hidden = $("mixSet").hidden = !isKokoro();
+  for (const k of ["rhythm", "tone", "pause", "comma"]) if (k in d) {
+    const x = v[k] ?? d[k];
+    $(k).value = x; $(k + "Val").textContent = shown(k, x);
+  }
+  $("mix").value = v.mix || ""; $("mixamtLabel").hidden = !v.mix;
+  if (v.mix) { $("mixamt").value = v.mixamt ?? 0.3; $("mixamtVal").textContent = shown("mixamt", v.mixamt ?? 0.3); }
+  showTune();
+}
+
+function showTune() {  // the button reads the panel's three values: speed, then the engine's two
+  const val = k => $(k + "Val").textContent;
+  const parts = [["⏩\uFE0E", "Speed", val("speed")]];
+  if (isPiper()) parts.push(["〰", "Rhythm", val("rhythm")], ["♪", "Tone", val("tone")]);
+  if (isKokoro()) parts.push(["⏸\uFE0E", "Pause after . ! ?", val("pause")], ["❜", "Pause after , ; :", val("comma")]);
+  $("tuneBtn").innerHTML = parts.map(([i, t, x]) => `<span title="${esc(t)}"><b>${i}</b>${esc(x)}</span>`).join("");
+}
+
+async function refresh() {  // after a voice, speed or speaker change: which boxes still have a clip
+  await save();
+  const fresh = await get(`/api/project?name=${encodeURIComponent(name)}`);
+  P.boxes.forEach((b, i) => { if (isBox(b)) { b.clip = fresh.boxes[i].clip; b.done = fresh.boxes[i].done; b.voice = fresh.boxes[i].voice; b.error = null; } });
+  render();
+}
+
+function status(b, n) {
+  if (b.working) return queue[0] === b ? `<span class="st run">Converting… ${clock(b)}</span>` : `<span class="st">Waiting…</span>`;
+  if (b.error) return `<span class="st err">${esc(b.error)}</span>`;
+  if (!b.text.trim()) return `<span class="st">Empty</span>`;
+  if (!b.done) return `<span class="st">Not converted</span>`;
+  return `<audio controls preload="none" src="/clip/${b.voice}/${b.clip}"></audio>
+          <button data-act="save1" title="Save this clip">Save</button>${b.saved === b.clip ? `<span class="st ok">Saved</span>` : ""}`;
+}
+
+const clock = b => { const t = Math.floor((Date.now() - (b.t0 || Date.now())) / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+setInterval(() => {  // the running box's timer, so a long box doesn't look stuck
+  const b = queue[0], el = b && document.querySelector(`.box[data-i="${P.boxes.indexOf(b)}"] .run`);
+  if (el) el.textContent = `Converting… ${clock(b)}`;
+}, 1000);
+
+function pick(act, label, values, own, digits) {
+  return `<select data-act="${act}" title="${label} for this box only">
+        <option value="">Project ${label.toLowerCase()}</option>${values.map(s => `<option value="${s}"${s === own ? " selected" : ""}>${(+s).toFixed(digits)}${act === "speed" ? "×" : ""}</option>`).join("")}
+      </select>`;
+}
+
+const moves = (what) => `
+        <button class="link" data-act="up" title="Move up">↑</button>
+        <button class="link" data-act="down" title="Move down">↓</button>
+        <button class="link" data-act="add" title="Add a box below">+ box</button>
+        <button class="link" data-act="addspk" title="Add a speaker row below">+ speaker</button>
+        <button class="link" data-act="addscene" title="Add a scene row below">+ scene</button>
+        <button class="link" data-act="del" title="Delete ${what}">Delete</button>`;
+
+function boxHTML(b, i, n, c) {
+  const own = k => b[k] ? String(+b[k]) : "";
+  return `<div class="box${b.working ? " busy" : ""}${b.sel ? " sel" : ""}${inScene(i) ? " in" : ""}" data-i="${i}"${c ? ` style="--c:${c}"` : ""}>
+    <div class="top"><input type="checkbox" class="pick" data-act="pick" title="Tick to save with Save selected"${b.sel ? " checked" : ""}><span class="num">${n}</span>
+      <div class="txt"><input class="label" value="${esc(b.label || "")}" placeholder="Name (the saved file's name; empty = from the text)">
+      <textarea rows="1" placeholder="Type what this clip should say">${esc(b.text)}</textarea></div></div>
+    <div class="row">
+      <button class="main" data-act="convert"${b.working || b.done || !b.text.trim() ? " disabled" : ""}>Convert</button>
+      ${pick("speed", "Speed", SPEEDS, own("speed"), 2)}
+      ${isPiper(b.voice) ? pick("rhythm", "Rhythm", RHYTHMS, own("rhythm"), 1) + pick("tone", "Tone", TONES, own("tone"), 1) : ""}
+      <span class="slot">${status(b, n)}</span>
+      <span class="end">${moves("box")}</span>
+    </div>
+  </div>`;
+}
+
+function speakerHTML(b, i) {
+  const known = P.speakers.some(s => s.name === b.speaker);
+  return `<div class="spk${inScene(i) ? " in" : ""}" data-i="${i}" style="--c:${color(b.speaker) || "var(--line)"}">
+    <select data-act="who" title="Who speaks the boxes below">
+      <option value="">Default voice</option>${P.speakers.map(s => `<option value="${esc(s.name)}"${known && s.name === b.speaker ? " selected" : ""}>${esc(s.name)}</option>`).join("")}
+    </select>
+    ${known ? `<button class="link" data-act="edit" title="Change ${esc(b.speaker)}'s voice in the top bar">Voice…</button>` : ""}
+    <span class="end">${moves("this speaker row (the boxes stay)")}</span>
+  </div>`;
+}
+
+function sceneHTML(b, i, boxes) {
+  const left = todo(boxes);
+  const all = boxes.length && boxes.every(x => x.sel);
+  return `<div class="scene" data-i="${i}">
+    <input type="checkbox" class="pick" data-act="pickscene" title="Tick every box in this scene"${all ? " checked" : ""}>
+    <button class="link fold" data-act="fold" title="${b.folded ? "Open" : "Fold"} this scene">${b.folded ? "▸" : "▾"}</button>
+    <input class="title" value="${esc(b.title || "")}" placeholder="Scene name">
+    <span class="st">${boxes.length} box${boxes.length === 1 ? "" : "es"}${left ? `, ${left} to convert` : ""}</span>
+    <button data-act="scenego"${!waiting(boxes).length ? " disabled" : ""}>Convert changed</button>
+    <span class="end">${moves("this scene row (the boxes stay)")}</span>
+  </div>`;
+}
+
+function sceneBoxes(i) {  // the boxes from scene row i to its end
+  return P.boxes.slice(i + 1, sceneEnd(i)).filter(isBox);
+}
+
+function render() {
+  tidy();
+  let html = "", n = 0, c = "", folded = false;
+  P.boxes.forEach((b, i) => {
+    if (b.kind === "end") { folded = false; return; }
+    if (b.kind === "scene") { folded = !!b.folded; html += sceneHTML(b, i, sceneBoxes(i)); return; }
+    if (b.kind === "speaker") { c = color(b.speaker); if (!folded) html += speakerHTML(b, i); return; }
+    n++;
+    if (!folded) html += boxHTML(b, i, n, c);
+  });
+  $("boxes").innerHTML = html + `<p><button class="link" id="addEnd">+ Add box</button></p>`;
+  document.querySelectorAll("#boxes textarea").forEach(grow);
+  $("addEnd").onclick = () => { P.boxes.push({text:"", voice:P.boxes.length ? voiceAt(P.boxes.length) : P.voice}); save(); render(); focusBox(P.boxes.length - 1); };
+  counts();
+}
+function counts() {
+  const left = todo(P.boxes);
+  $("state").textContent = queue.length ? `Converting${queue.length > 1 ? `, ${queue.length - 1} waiting` : ""}`
+                         : left ? `${left} to convert` : "All converted";
+  $("allBtn").disabled = !waiting(P.boxes).length;
+  const sel = P.boxes.filter(b => b.sel).length;
+  $("saveSel").textContent = sel ? `Save selected (${sel})` : "Save selected";
+  $("saveSel").disabled = !sel;
+  $("textSel").textContent = sel ? `Export text (${sel})` : "Export text";
+  $("textSel").disabled = !sel;
+  $("selNone").disabled = !sel;
+  const scenes = P.boxes.filter(b => b.kind === "scene");
+  $("toScene").innerHTML = `<option value="">Move to scene${sel ? ` (${sel})` : ""}</option><option value="new">New scene…</option>`
+    + scenes.map((b, k) => `<option value="${k}">S${k + 1} ${esc(b.title || "")}</option>`).join("");
+  $("toScene").disabled = !sel;
+}
+function redrawBox(i) {
+  const el = document.querySelector(`.box[data-i="${i}"]`);
+  if (!el) return counts();
+  const n = P.boxes.slice(0, i + 1).filter(isBox).length;
+  const tmp = document.createElement("div"); tmp.innerHTML = boxHTML(P.boxes[i], i, n, el.style.getPropertyValue("--c"));
+  el.replaceWith(tmp.firstElementChild); grow(document.querySelector(`.box[data-i="${i}"] textarea`));
+  counts();
+}
+const grow = t => { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; };
+const focusBox = i => document.querySelector(`.box[data-i="${i}"] textarea`)?.focus();
+
+function speakerAt(i) {  // who speaks at position i: the last speaker row above it ("" = default voice)
+  for (let j = i - 1; j >= 0; j--) if (P.boxes[j].kind === "speaker") return P.speakers.some(s => s.name === P.boxes[j].speaker) ? P.boxes[j].speaker : "";
+  return "";
+}
+const voiceAt = i => { const w = speakerAt(i); return w ? P.speakers.find(s => s.name === w).voice : P.voice; };
+
+function newSpeaker(n) {  // a speaker starts as a copy of the default voice
+  const sp = {name:n, voice:P.voice, speed:P.speed};
+  for (const k of KEYS) if (P[k] != null) sp[k] = P[k];
+  P.speakers.push(sp);
+  return sp;
+}
+function askName(old = "") {
+  const n = (prompt("Speaker name, e.g. Sam:", old) || "").trim();
+  if (!n || n === old) return "";
+  if (P.speakers.some(s => s.name === n)) { alert(`There is already a speaker called ${n}.`); return ""; }
+  return n;
+}
+
+function convertAll(list) {  // queue them; one is made at a time, the rest show Waiting…
+  for (const b of waiting(list)) { b.working = true; b.error = null; queue.push(b); redrawBox(P.boxes.indexOf(b)); }
+  counts(); pump();
+}
+async function pump() {
+  if (pumping) return;
+  pumping = true;
+  while (queue.length) {
+    const b = queue[0];
+    b.t0 = Date.now(); redrawBox(P.boxes.indexOf(b));
+    let r;
+    try {
+      await save();
+      const i = P.boxes.indexOf(b);
+      r = i < 0 ? {} : await post("/api/project/convert", {name, box:i});
+    } catch (e) { r = {error:"Lost the server, try again"}; }
+    queue.shift(); b.working = false; b.t0 = null;
+    if (r.error) b.error = r.error; else if (r.clip) { b.clip = r.clip; b.voice = r.voice; b.done = true; }
+    redrawBox(P.boxes.indexOf(b));
+  }
+  pumping = false; counts();
+}
+
+$("boxes").addEventListener("input", e => {
+  if (e.target.classList.contains("title")) { P.boxes[+e.target.closest(".scene").dataset.i].title = e.target.value; return saveSoon(); }
+  if (e.target.classList.contains("label")) { P.boxes[+e.target.closest(".box").dataset.i].label = e.target.value; return saveSoon(); }
+  if (e.target.tagName !== "TEXTAREA") return;
+  const i = +e.target.closest(".box").dataset.i, b = P.boxes[i];
+  b.text = e.target.value; grow(e.target);
+  if (b.done) { b.done = false; const s = e.target.closest(".box").querySelector(".slot"); s.innerHTML = status(b); }
+  e.target.closest(".box").querySelector('[data-act="convert"]').disabled = b.working || !b.text.trim();
+  counts();
+  saveSoon();
+});
+$("boxes").addEventListener("change", async e => {
+  const act = e.target.dataset.act, el = e.target.closest("[data-i]"); if (!el) return;
+  const i = +el.dataset.i;
+  if (act === "who") { P.boxes[i].speaker = e.target.value; return refresh(); }
+  if (act === "pick") { P.boxes[i].sel = e.target.checked; el.classList.toggle("sel", e.target.checked); return counts(); }
+  if (act === "pickscene") { sceneBoxes(i).forEach(b => b.sel = e.target.checked); render(); return; }
+  if (!["speed", "rhythm", "tone"].includes(act)) return;
+  if (e.target.value) P.boxes[i][act] = +e.target.value; else delete P.boxes[i][act];
+  await refresh();
+});
+$("boxes").addEventListener("click", async e => {
+  const act = e.target.dataset.act, el = e.target.closest("[data-i]"); if (!act || !el) return;
+  const i = +el.dataset.i, b = P.boxes[i];
+  if (b.kind === "scene" && ["add", "addspk"].includes(act)) b.folded = false;  // adding into a folded scene opens it
+  if (act === "convert") convertAll([b]);
+  if (act === "save1") saveBoxes([b]);
+  if (act === "scenego") convertAll(sceneBoxes(i));
+  if (act === "fold") { b.folded = !b.folded; save(); render(); }
+  if (act === "edit") { ed = b.speaker; showWho(); window.scrollTo({top:0}); $("voice").focus(); }
+  if (act === "add") { P.boxes.splice(i + 1, 0, {text:"", voice:voiceAt(i + 1)}); save(); render(); focusBox(i + 1); }
+  if (act === "addscene") {  // from a scene row: a new empty scene after this whole scene; from a box in a scene: split
+    const n = P.boxes.filter(x => x.kind === "scene").length + 1;  // there; from a box in no scene: a new empty scene after it
+    const row = {kind:"scene", title:`Scene ${n}`};
+    const split = b.kind !== "scene" && inScene(i) && P.boxes[i + 1].kind !== "end";
+    const at = b.kind === "scene" ? sceneEnd(i) + 1 : split ? i + 2 : i + 1 + (inScene(i) ? 1 : 0);
+    if (split) P.boxes.splice(i + 1, 0, {kind:"end"}, row);
+    else P.boxes.splice(at, 0, row, {text:"", voice:voiceAt(at)}, {kind:"end"});
+    save(); render();
+    document.querySelector(`.scene[data-i="${at}"] input`)?.select();
+  }
+  if (act === "addspk") {  // the next speaker after whoever speaks here, so a chat alternates Sam, Joe, Sam…
+    if (!P.speakers.length) { const n = askName(); if (!n) return; newSpeaker(n); showWho(); }
+    const names = [...P.speakers.map(s => s.name), ""], now = speakerAt(i + 1);
+    P.boxes.splice(i + 1, 0, {kind:"speaker", speaker:names[(names.indexOf(now) + 1) % names.length] || names[0]});
+    await refresh();
+  }
+  if (act === "del") {
+    if (isBox(b) && b.text.trim() && !confirm("Delete this box?")) return;
+    if (b.kind === "scene") P.boxes.splice(sceneEnd(i), 1);  // its boxes stay, now in no scene
+    P.boxes.splice(i, 1); if (!P.boxes.some(isBox)) P.boxes.push({text:"", voice:P.voice});
+    await refresh();
+  }
+  if (b.kind === "scene" && ["up", "down"].includes(act)) {  // a scene moves with all its boxes, past the whole
+    const block = P.boxes.slice(i, sceneEnd(i) + 1);                // next/previous scene, or past one row outside scenes
+    if (act === "up" && i > 0) {
+      let to = i - 1;
+      if (P.boxes[to].kind === "end") while (P.boxes[to].kind !== "scene") to--;
+      P.boxes.splice(i, block.length); P.boxes.splice(to, 0, ...block);
+    }
+    const k = i + block.length;
+    if (act === "down" && k < P.boxes.length) {
+      P.boxes.splice(P.boxes[k].kind === "scene" ? sceneEnd(k) + 1 : k + 1, 0, ...block);
+      P.boxes.splice(i, block.length);
+    }
+    return refresh();
+  }
+  if ((act === "up" && i > 0) || (act === "down" && i < P.boxes.length - 1)) {
+    const j = act === "up" ? i - 1 : i + 1;
+    [P.boxes[i], P.boxes[j]] = [P.boxes[j], P.boxes[i]];
+    await refresh();
+  }
+});
+
+$("allBtn").onclick = () => convertAll(P.boxes);
+function fileName(i) {  // the box's own name, else the automatic one (as the server makes them)
+  const b = P.boxes[i], label = (b.label || "").replace(/[/:\\]/g, "-").trim();
+  if (label) return label + ".wav";
+  const n = P.boxes.slice(0, i + 1).filter(x => isBox(x) && x.text.trim()).length;
+  const scene = inScene(i) ? P.boxes.slice(0, i).filter(x => x.kind === "scene").length : 0;
+  const who = speakerAt(i).replace(/[^\p{L}\p{N}_' .-]/gu, "");
+  const words = b.text.trim().replace(/’/g, "'").replace(/[^\p{L}\p{N}_' ,.-]/gu, "").split(/\s+/).filter(Boolean);
+  return `${scene ? `S${scene}-` : ""}${String(n).padStart(2, "0")} ${who ? who + " - " : ""}${words.slice(0, 8).join(" ").replace(/[,.]+$/, "")}.wav`;
+}
+const cancelled = e => e.name === "AbortError";
+async function saveBoxes(list) {  // a normal Save dialog: one box → choose the file; several → choose a folder
+  const ready = list.filter(b => b.done), missing = list.filter(b => b.text.trim() && !b.done).length;
+  if (!ready.length) return alert(missing ? "The ticked boxes aren't converted yet." : "Nothing to save.");
+  const used = new Set(), named = ready.map(b => {  // two boxes with the same name: "Intro (2).wav"
+    let f = fileName(P.boxes.indexOf(b)), k = 2; const base = f.slice(0, -4);
+    while (used.has(f)) f = `${base} (${k++}).wav`;
+    used.add(f); return {b, f};
+  });
+  try {
+    if (named.length === 1) {
+      const h = await showSaveFilePicker({id:"clips", suggestedName:named[0].f, types:[{description:"WAV audio", accept:{"audio/wav":[".wav"]}}]});
+      await writeClip(h, named[0].b);
+    } else {
+      const dir = await showDirectoryPicker({id:"clips", mode:"readwrite"});
+      const there = [];
+      for (const {f} of named) { try { await dir.getFileHandle(f); there.push(f); } catch {} }
+      if (there.length && !confirm(there.length === 1 ? `"${there[0]}" is already in that folder. Replace it?` : `${there.length} of these files are already in that folder. Replace them?`)) return;
+      for (const {b, f} of named) await writeClip(await dir.getFileHandle(f, {create:true}), b);
+    }
+  } catch (e) { if (!cancelled(e)) alert("Couldn't save: " + e.message); return; }
+  named.forEach(({b}) => { b.saved = b.clip; b.sel = false; });
+  save(); render();
+  if (missing) alert(`${missing} of the ticked boxes aren't converted yet, so they weren't saved.`);
+}
+async function writeClip(handle, b) {
+  const data = await fetch(`/clip/${b.voice}/${b.clip}`).then(r => { if (!r.ok) throw new Error("clip not found"); return r.blob(); });
+  const w = await handle.createWritable(); await w.write(data); await w.close();
+}
+$("saveSel").onclick = () => saveBoxes(P.boxes.filter(b => b.sel));
+$("textSel").onclick = async () => {  // a normal Save dialog; ticks stay, so the same boxes can still be saved as clips
+  let n = 0; const parts = [];
+  P.boxes.forEach(b => { if (!isBox(b)) return; n++; if (b.sel && b.text.trim()) parts.push(`${(b.label || "").trim() || n}\n${b.text.trim()}`); });
+  if (!parts.length) return alert("The ticked boxes have no text.");
+  try {
+    const h = await showSaveFilePicker({id:"text", suggestedName:`${name} text.txt`, types:[{description:"Text", accept:{"text/plain":[".txt"]}}]});
+    const w = await h.createWritable(); await w.write(parts.join("\n\n") + "\n"); await w.close();
+  } catch (e) { if (!cancelled(e)) alert("Couldn't save: " + e.message); }
+};
+$("selNew").onclick = () => {
+  P.boxes.forEach(b => b.sel = isBox(b) && !!b.done && b.saved !== b.clip);
+  render();
+  if (!P.boxes.some(b => b.sel)) alert("Nothing new: every converted box is saved as it is now.");
+};
+$("selNone").onclick = () => { P.boxes.forEach(b => b.sel = false); render(); };
+$("toScene").onchange = async () => {  // only the ticked boxes move, in order; every other box stays where it is
+  const v = $("toScene").value; $("toScene").value = ""; if (!v) return;
+  tidy();
+  const picked = P.boxes.map((b, i) => b.sel ? {b, who:speakerAt(i)} : null).filter(Boolean);
+  const dead = () => P.boxes.filter((x, i) => x.kind === "speaker" && (i === P.boxes.length - 1 || P.boxes[i + 1].kind === "speaker"));
+  const wasDead = dead();  // speaker rows with no box under them; only the ones this move empties are taken out
+  let row = null, scene = null, after = null;  // row: a new scene row; scene: the chosen one; after: what the new scene follows
+  if (v === "new") {
+    const n = P.boxes.filter(x => x.kind === "scene").length + 1;
+    const t = prompt("Scene name:", `Scene ${n}`); if (t === null) return;
+    row = {kind:"scene", title:t.trim() || `Scene ${n}`};
+    const first = P.boxes.indexOf(picked[0].b);  // where the first ticked box is, or after its scene if it's in one
+    if (inScene(first)) { let j = first; while (P.boxes[j].kind !== "end") j++; after = P.boxes[j]; }
+    else { let j = first - 1; while (j >= 0 && P.boxes[j].sel) j--; after = j >= 0 ? P.boxes[j] : null; }
+  } else scene = P.boxes.filter(x => x.kind === "scene")[+v];
+  picked.forEach(p => { P.boxes.splice(P.boxes.indexOf(p.b), 1); p.b.sel = false; });
+  const at = scene ? sceneEnd(P.boxes.indexOf(scene)) : after ? P.boxes.indexOf(after) + 1 : 0;
+  const before = speakerAt(at), add = row ? [row] : [];
+  let who = before;
+  picked.forEach(p => { if (p.who !== who) { add.push({kind:"speaker", speaker:p.who}); who = p.who; } add.push(p.b); });
+  if (row) add.push({kind:"end"});
+  P.boxes.splice(at, 0, ...add);
+  let next = at + add.length;  // what comes after keeps the speaker it had (below a scene's end and title rows)
+  while (next < P.boxes.length && P.boxes[next].kind === "end") next++;
+  if (P.boxes[next]?.kind === "scene") next++;
+  if (who !== before && next < P.boxes.length && P.boxes[next].kind !== "speaker")
+    P.boxes.splice(next, 0, {kind:"speaker", speaker:before});
+  dead().filter(x => !wasDead.includes(x)).forEach(x => P.boxes.splice(P.boxes.indexOf(x), 1));
+  if (scene && !row) scene.folded = false;
+  await refresh();
+};
+$("exportBtn").onclick = async () => {
+  await save();
+  const r = await post("/api/project/export", {name});
+  alert(r.missing ? `${r.clips} clips are in the folder. ${r.missing} boxes aren't converted yet.`
+                  : `All ${r.clips} clips are in the folder that just opened. Drag them into Final Cut.`);
+};
+$("who").onchange = () => {
+  if ($("who").value === "__new") { const n = askName(); if (n) { newSpeaker(n); ed = n; save(); render(); } showWho(); return; }
+  ed = $("who").value; showWho();
+};
+$("whoRename").onclick = () => {
+  const n = askName(ed); if (!n) return;
+  P.boxes.forEach(b => { if (b.kind === "speaker" && b.speaker === ed) b.speaker = n; });
+  V().name = n; ed = n; showWho(); save(); render();
+};
+$("whoDel").onclick = () => {
+  if (!confirm(`Delete the speaker ${ed}? Their rows go back to the default voice.`)) return;
+  P.boxes.forEach(b => { if (b.kind === "speaker" && b.speaker === ed) b.speaker = ""; });
+  P.speakers = P.speakers.filter(s => s.name !== ed); ed = ""; showWho(); refresh();
+};
+$("voice").onchange = () => { V().voice = $("voice").value; showSettings(); refresh(); };
+$("tuneBtn").onclick = () => $("tune").hidden = !$("tune").hidden;
+document.addEventListener("mousedown", e => { if (!e.target.closest("#tuneWrap")) $("tune").hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("tune").hidden = true; });
+$("tune").addEventListener("input", showTune);
+$("speed").oninput = () => $("speedVal").textContent = (+$("speed").value).toFixed(2) + "×";
+$("speed").onchange = () => { V().speed = +$("speed").value; refresh(); };
+for (const k of ["rhythm", "tone", "pause", "comma"]) {
+  $(k).oninput = () => $(k + "Val").textContent = shown(k, $(k).value);
+  $(k).onchange = () => {  // back on the voice's own value = unset, so its old clips count again
+    const v = +$(k).value, o = V();
+    if (k !== "pause" && Math.abs(v - DEF[o.voice][k]) < 0.005) delete o[k]; else o[k] = v;  // pause stays set: a moved slider always makes new clips
+    refresh();
+  };
+}
+$("resetSet").onclick = () => { delete V().rhythm; delete V().tone; showSettings(); refresh(); };
+$("mix").onchange = () => {
+  const o = V();
+  if ($("mix").value) { o.mix = $("mix").value; o.mixamt ??= 0.3; } else { delete o.mix; delete o.mixamt; }
+  showSettings(); refresh();
+};
+$("mixamt").oninput = () => $("mixamtVal").textContent = shown("mixamt", $("mixamt").value);
+$("mixamt").onchange = () => { V().mixamt = +$("mixamt").value; refresh(); };
+$("resetKokoro").onclick = () => { for (const k of ["pause", "comma"]) delete V()[k]; showSettings(); refresh(); };
+
+$("list").onclick = e => { if (e.target.dataset.p) open(e.target.dataset.p); };
+
+// Projects: right-click menu (rename, move, delete) and drag to reorder
+const listNames = () => [...document.querySelectorAll("#list .p")].map(el => el.dataset.p);
+async function setOrder(order) { await post("/api/projects/order", {order}); loadList(); }
+let menuFor = null, dragged = null;
+$("list").oncontextmenu = e => {
+  if (!e.target.dataset.p) return;
+  e.preventDefault();
+  menuFor = e.target.dataset.p;
+  const m = $("pmenu"); m.hidden = false;
+  m.style.left = Math.min(e.clientX, innerWidth - m.offsetWidth - 8) + "px";
+  m.style.top = Math.min(e.clientY, innerHeight - m.offsetHeight - 8) + "px";
+};
+document.addEventListener("click", e => { if (!e.target.closest("#pmenu")) $("pmenu").hidden = true; });
+$("pmenu").onclick = async e => {
+  const m = e.target.closest("[data-m]")?.dataset.m; if (!m) return;
+  $("pmenu").hidden = true;
+  const order = listNames(), i = order.indexOf(menuFor);
+  if (m === "up" && i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; setOrder(order); }
+  if (m === "down" && i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; setOrder(order); }
+  if (m === "rename") renameInList(menuFor);
+  if (m === "delete") {
+    if (menuFor === name && queue.length) return alert("This project is converting. Wait until it's done.");
+    if (!confirm(`Delete the project "${menuFor}"? It goes to the Trash, so you can still get it back from there.`)) return;
+    const r = await post("/api/project/delete", {name:menuFor});
+    if (r.error) return alert(r.error);
+    if (menuFor === name) {  // the open one: forget it, so nothing saves it back
+      clearTimeout(saveTimer); P = null; name = null; store("project", "");
+      $("head").hidden = true; $("boxes").innerHTML = `<p class="empty">Make a project on the left to start.</p>`;
+      const list = await loadList(); if (list.length) open(list[0]);
+    } else loadList();
+  }
+};
+function renameInList(old) {  // the name turns into a field in the list: Enter (or click away) renames, Esc cancels
+  const btn = document.querySelector(`#list .p[data-p="${CSS.escape(old)}"]`); if (!btn) return;
+  const f = document.createElement("input");
+  f.className = "pname"; f.value = old;
+  btn.replaceWith(f); f.focus(); f.select();
+  let done = false;
+  const finish = async keep => {
+    if (done) return; done = true;
+    const n = f.value.trim();
+    if (!keep || !n || n === old) return loadList();
+    if (old === name) await save();  // the open one: save it under the old name first
+    const r = await post("/api/project/rename", {name:old, new:n});
+    if (r.error) { alert(r.error); return loadList(); }
+    if (old === name) { name = r.name; store("project", name); $("title").textContent = name; }
+    loadList();
+  };
+  f.onkeydown = e => { if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); };
+  f.onblur = () => finish(true);
+}
+$("list").addEventListener("dragstart", e => { dragged = e.target.dataset.p; });
+$("list").addEventListener("dragover", e => {
+  if (!dragged || !e.target.dataset.p) return;
+  e.preventDefault();
+  document.querySelectorAll("#list .drop").forEach(el => el.classList.remove("drop"));
+  e.target.classList.add("drop");
+});
+$("list").addEventListener("dragleave", e => e.target.classList?.remove("drop"));
+$("list").addEventListener("drop", e => {  // dropped on a project: goes just above it
+  e.preventDefault();
+  const to = e.target.dataset.p; if (!dragged || !to || to === dragged) return;
+  const order = listNames().filter(n => n !== dragged);
+  order.splice(order.indexOf(to), 0, dragged);
+  dragged = null; setOrder(order);
+});
+$("list").addEventListener("dragend", () => { dragged = null; document.querySelectorAll("#list .drop").forEach(el => el.classList.remove("drop")); });
+$("newBtn").onclick = async () => {
+  const n = prompt("Project name, e.g. the video's title:"); if (!n) return;
+  const r = await post("/api/project/new", {name:n}); await loadList(); open(r.name);
+};
+$("pasteBtn").onclick = () => { $("pasteText").value = ""; $("paste").showModal(); };
+$("pasteCancel").onclick = () => $("paste").close();
+$("pasteOk").onclick = () => {
+  // "## Scene 1" starts a scene, "Sam: Hello" starts Sam's turn (a speaker row only when the speaker changes)
+  if (P.boxes.length === 1 && isBox(P.boxes[0]) && !P.boxes[0].text.trim()) P.boxes = [];
+  let who = speakerAt(P.boxes.length);
+  for (const para of $("pasteText").value.split(/\n\s*\n/)) {
+    const keep = [];
+    for (const line of para.split("\n")) {
+      const t = line.trim();
+      if (t.startsWith("##")) P.boxes.push({kind:"scene", title:t.replace(/^#+\s*/, "")});
+      else if (!t.startsWith("#")) keep.push(line);
+    }
+    let text = keep.join("\n").trim();
+    const m = text.match(/^([A-Z][\w'.-]*(?: [A-Z][\w'.-]*){0,2}):\s*([\s\S]*)$/);
+    if (m) {
+      if (!P.speakers.some(s => s.name === m[1])) newSpeaker(m[1]);
+      if (m[1] !== who) { P.boxes.push({kind:"speaker", speaker:m[1]}); who = m[1]; }
+      text = m[2].trim();
+    }
+    if (text) P.boxes.push({text});
+  }
+  if (!P.boxes.length) P.boxes.push({text:""});
+  $("paste").close(); showWho(); refresh();
+};
+window.addEventListener("beforeunload", () => { if (P) navigator.sendBeacon?.("/api/project/save",
+  new Blob([JSON.stringify(payload())], {type:"application/json"})); });
+
+(async () => {
+  const d = await get("/api/setup");
+  DEF = d.defaults || {};
+  $("mix").innerHTML = `<option value="">No mix</option>` + Object.entries(d.models).filter(([k]) => k.startsWith("kokoro-"))
+    .map(([k, v]) => `<option value="${k.slice(7)}">${esc(v.slice(7))}</option>`).join("");
+  const groups = {};  // "Kokoro Heart (US woman)" -> under Kokoro, as "Heart (US woman)"
+  for (const [k, v] of Object.entries(d.models)) { const [g, ...rest] = v.split(" "); (groups[g] ||= []).push(`<option value="${k}">${esc(rest.join(" ") || v)}</option>`); }
+  $("voice").innerHTML = Object.entries(groups).map(([g, o]) => `<optgroup label="${g}">${o.join("")}</optgroup>`).join("");
+  const list = await loadList();
+  const last = store("project");
+  if (list.includes(last)) open(last); else if (list.length) open(list[0]);
+})();
+</script>
+</body>
+</html>

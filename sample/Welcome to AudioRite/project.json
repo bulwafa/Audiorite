@@ -1,0 +1,63 @@
+{
+ "voice": "kokoro-am_onyx",
+ "speed": 1.0,
+ "speakers": [
+  {
+   "name": "Sam",
+   "voice": "kokoro-michael",
+   "speed": 1.0
+  },
+  {
+   "name": "Emma",
+   "voice": "kokoro-bf_emma",
+   "speed": 1.0
+  }
+ ],
+ "boxes": [
+  {
+   "kind": "scene",
+   "title": "Intro"
+  },
+  {
+   "text": "Welcome to AudioRite. Each box is one clip. Press Convert, and this text is read out loud.",
+   "label": "Welcome"
+  },
+  {
+   "text": "Change a word and only that box is made again. The rest stay as they are."
+  },
+  {
+   "kind": "end"
+  },
+  {
+   "kind": "scene",
+   "title": "A conversation"
+  },
+  {
+   "kind": "speaker",
+   "speaker": "Sam"
+  },
+  {
+   "text": "Speakers each have their own voice. I'm Sam."
+  },
+  {
+   "kind": "speaker",
+   "speaker": "Emma"
+  },
+  {
+   "text": "And I'm Emma. Pick a voice for each of us in the bar at the top."
+  },
+  {
+   "kind": "speaker",
+   "speaker": "Sam"
+  },
+  {
+   "text": "When you're happy, save the clips and drop them into your video editor."
+  },
+  {
+   "kind": "end"
+  },
+  {
+   "text": "Boxes can also sit on their own, outside any scene."
+  }
+ ]
+}

@@ -1,0 +1,2 @@
+# How words should be said. One per line: Word = how to say it
+# Example: Vivosun = Vee-vo-sun
