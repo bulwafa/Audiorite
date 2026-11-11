@@ -24,7 +24,7 @@ Mac to test it on.
 - **Scenes**: group boxes, fold them, move them, convert one scene at a time.
 - **Paste a whole script**: each paragraph becomes a box, `Sam: Hello` starts Sam's turn, `## Title` starts a scene.
 - **Save** one clip, the ticked ones, or all of them numbered in order for Final Cut (or any editor). WAV files.
-- **Word list**: teach it how to say a product name once (`words.txt`).
+- **Word list**: teach it how to say a product name once.
 
 ## What you need
 
@@ -63,13 +63,14 @@ it only listens on your own Mac (`localhost:8765`).
 
 ### The word list
 
-`words.txt` in the folder says how a word should be read. One per line:
+The **Word list** button says how a word should be read. One per line:
 
 ```
 Vivosun = Vee-vo-sun
 ```
 
-Changing it changes how those boxes are read, so they need converting again.
+The list is for all projects (it is the file `words.txt` in the folder). Boxes that contain a word you add or
+change need converting again; the others are not touched.
 
 ## Voices and their licences
 

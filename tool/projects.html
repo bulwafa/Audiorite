@@ -138,6 +138,7 @@
     </span>
     <div class="push">
       <span id="state"></span>
+      <button id="wordsBtn" title="How words should be said, e.g. product names. One list for all projects">Word list</button>
       <button id="pasteBtn">Paste script</button>
       <button class="main" id="allBtn">Convert changed</button>
     </div>
@@ -170,6 +171,14 @@
   <textarea id="pasteText"></textarea>
   <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end">
     <button id="pasteCancel">Cancel</button><button class="main" id="pasteOk">Add boxes</button>
+  </div>
+</dialog>
+
+<dialog id="words">
+  <p>How a word should be said, one per line: <code>Vivosun = Vee-vo-sun</code>. Capital letters matter. The list is for all projects. Boxes that contain a word you add, change or remove need converting again; the others are not touched.</p>
+  <textarea id="wordsText" spellcheck="false"></textarea>
+  <div style="margin-top:10px; display:flex; gap:8px; justify-content:flex-end">
+    <button id="wordsCancel">Cancel</button><button class="main" id="wordsOk">Save</button>
   </div>
 </dialog>
 
@@ -721,6 +730,12 @@ $("newBtn").onclick = async () => {
 };
 $("pasteBtn").onclick = () => { $("pasteText").value = ""; $("paste").showModal(); };
 $("pasteCancel").onclick = () => $("paste").close();
+$("wordsBtn").onclick = async () => { $("wordsText").value = await fetch("/api/words").then(r => r.text()); $("words").showModal(); };
+$("wordsCancel").onclick = () => $("words").close();
+$("wordsOk").onclick = async () => {  // the server reads the list for every clip, so a changed word shows those boxes as not converted
+  await post("/api/words", {text:$("wordsText").value});
+  $("words").close(); refresh();
+};
 $("pasteOk").onclick = () => {
   // "## Scene 1" starts a scene, "Sam: Hello" starts Sam's turn (a speaker row only when the speaker changes)
   if (P.boxes.length === 1 && isBox(P.boxes[0]) && !P.boxes[0].text.trim()) P.boxes = [];
